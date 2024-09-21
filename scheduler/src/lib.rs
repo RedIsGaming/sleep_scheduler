@@ -1,3 +1,5 @@
+pub mod process;
+
 pub mod commands {
     use std::{env::consts, process::{Child, Command}};
     
@@ -11,10 +13,7 @@ pub mod commands {
             return command
         }
 
-        Command::new("cmd")
-            .args(["/c", &format!("echo {}", task)])
-            .spawn()
-            .expect("Couldn't find the echo command")
+        Command::new("cmd").args(["/c", &format!("echo {}", task)]).spawn().expect("Couldn't find the echo command")
     }
 
     pub fn task_clear() -> Child {
@@ -27,9 +26,6 @@ pub mod commands {
             return command
         }
 
-        Command::new("cmd")
-            .args(["/c", "cls"])
-            .spawn()
-            .expect("Couldn't find the cls command")
+        Command::new("cmd").args(["/c", "cls"]).spawn().expect("Couldn't find the cls command")
     }
 }

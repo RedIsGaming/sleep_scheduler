@@ -1,25 +1,13 @@
-use std::{process::Child, sync::Arc, thread, time::Duration};
-use scheduler::commands;
+use std::{process::Child, sync::{Arc, Mutex}, thread, time::Duration};
+use scheduler::{commands, process::*};
 
-#[allow(unused)]
-#[derive(Debug, Default, Clone, Copy)]
-enum ProcessState {
-    #[default] Waiting,
-    Ready,
-    Running,
-    Completed,
+pub trait Scheduler {
+    fn new(name: String, state: ProcessState, job: fn() -> Child, time: Time) -> Self;
+    fn run(tasks: &mut TaskScheduler) -> &TaskScheduler;
+    fn handler(tasks: &mut TaskScheduler) -> &TaskScheduler;
 }
 
-#[allow(unused)]
-#[derive(Debug, Clone)]
-struct TaskScheduler {
-    name: String,
-    state: ProcessState,
-    job: fn() -> Child,
-    time: Time,
-}
-
-impl TaskScheduler {
+impl Scheduler for TaskScheduler {
     fn new(name: String, state: ProcessState, job: fn() -> Child, time: Time) -> Self {
         Self {
             name,
@@ -29,27 +17,38 @@ impl TaskScheduler {
         }
     }
 
-    fn run(tasks: &Arc<Vec<TaskScheduler>>) {
-        for task in tasks.iter() {
-            (task.job)();
+    fn run(tasks: &mut TaskScheduler) -> &TaskScheduler {
+        thread::sleep(tasks.time.delay);
+        (tasks.job)();
+        tasks.time.period = tasks.time.delay.as_secs_f32() as u32;
+
+        if tasks.state.ne(&ProcessState::Ready) { 
+            return tasks;
         }
 
-        let delay = <Vec<TaskScheduler> as Clone>::clone(tasks)
-            .into_iter()
-            .map(|x| x.time.delay);
+        tasks.state = ProcessState::Waiting;
+        tasks
+    }
 
-        thread::sleep(delay.max().unwrap());
+    fn handler(tasks: &mut TaskScheduler) -> &TaskScheduler {
+        if tasks.state.ne(&ProcessState::Waiting) {
+            return tasks;
+        }
+
+        if tasks.time.period != 0 {
+            tasks.time.period -= 1;
+        }
+
+        tasks.state = ProcessState::Ready;
+        tasks
     }
 }
 
-#[allow(unused)]
-#[derive(Debug, Default, Clone)]
-struct Time {
-    period: u32,
-    delay: Duration,
+pub trait TaskTime {
+    fn new(period: u32, delay: Duration) -> Self;
 }
 
-impl Time {
+impl TaskTime for Time {
     fn new(period: u32, delay: Duration) -> Self {
         Self {
             period,
@@ -58,48 +57,31 @@ impl Time {
     }
 }
 
-fn print_task1() -> Child {
+fn print_task() -> Child {
     commands::task_command("Task 1 is alive :D!")
 }
 
-fn print_task2() -> Child {
-    commands::task_command("Task 2 is alive :D!")
-}
-
-fn print_task3() -> Child {
-    commands::task_command("Task 3 is alive :D!")
-}
-
 fn main() -> ! {
-    let task1 = TaskScheduler::new(
+    let task = TaskScheduler::new(
         "Task1".to_owned(), 
         ProcessState::Waiting, 
-        print_task1, 
-        Time::new(5000, Duration::from_millis(1000))
+        print_task, 
+        Time::new(2500, Duration::from_secs(5))
     );
 
-    let task2 = TaskScheduler::new(
-        "Task2".to_owned(), 
-        ProcessState::Waiting, 
-        print_task2, 
-        Time::new(5000, Duration::from_millis(500))
-    );
-
-    let task3 = TaskScheduler::new(
-        "Task3".to_owned(), 
-        ProcessState::Waiting, 
-        print_task3, 
-        Time::new(5000, Duration::from_millis(750))
-    );
-
-    let tasks: Arc<Vec<TaskScheduler>> = Arc::new(vec![task1, task2, task3]);
+    let tasks: Arc<Mutex<[TaskScheduler; 1]>> = Arc::new(Mutex::new([task; 1]));
     commands::task_clear();
 
     loop {
-        let task = Arc::clone(&tasks);
+        let clone_task = Arc::clone(&tasks);
         
         thread::spawn(move || {
-            TaskScheduler::run(&task);
+            let lock_task = clone_task.lock().unwrap();
+            
+            for mut task in lock_task.iter() {
+                TaskScheduler::run(&mut task);
+                TaskScheduler::handler(&mut task);
+            }
         }).join().unwrap();
     }
 }
