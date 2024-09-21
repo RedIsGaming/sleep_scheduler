@@ -19,4 +19,5 @@ pub struct TaskScheduler {
 pub struct Time {
     pub period: u32,
     pub delay: Duration,
+    pub count: u32,
 }

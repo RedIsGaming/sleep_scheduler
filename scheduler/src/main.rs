@@ -18,14 +18,16 @@ impl Scheduler for TaskScheduler {
     }
 
     fn run(tasks: &mut TaskScheduler) -> &TaskScheduler {
-        thread::sleep(tasks.time.delay);
         (tasks.job)();
-        tasks.time.period = tasks.time.delay.as_secs_f32() as u32;
+        tasks.time.count = tasks.time.delay.as_secs_f32() as u32;
+
+        thread::sleep(tasks.time.delay);
 
         if tasks.state.ne(&ProcessState::Ready) { 
             return tasks;
         }
 
+        tasks.time.count = tasks.time.period;
         tasks.state = ProcessState::Waiting;
         tasks
     }
@@ -35,38 +37,40 @@ impl Scheduler for TaskScheduler {
             return tasks;
         }
 
-        if tasks.time.period != 0 {
-            tasks.time.period -= 1;
+        if tasks.time.count.ne(&0) {
+            tasks.time.count -= 1;
         }
 
         tasks.state = ProcessState::Ready;
+        tasks.time.count = tasks.time.period;
         tasks
     }
 }
 
 pub trait TaskTime {
-    fn new(period: u32, delay: Duration) -> Self;
+    fn new(period: u32, delay: Duration, count: u32) -> Self;
 }
 
 impl TaskTime for Time {
-    fn new(period: u32, delay: Duration) -> Self {
+    fn new(period: u32, delay: Duration, count: u32) -> Self {
         Self {
             period,
             delay,
+            count
         }
     }
 }
 
 fn print_task() -> Child {
-    commands::task_command("Task 1 is alive :D!")
+    commands::task_command("Shutdown task is alive :D!")
 }
 
 fn main() -> ! {
     let task = TaskScheduler::new(
-        "Task1".to_owned(), 
+        "Shutdown".to_owned(), 
         ProcessState::Waiting, 
         print_task, 
-        Time::new(2500, Duration::from_secs(5))
+        Time::new(1000, Duration::from_secs(5), 0)
     );
 
     let tasks: Arc<Mutex<[TaskScheduler; 1]>> = Arc::new(Mutex::new([task; 1]));
@@ -76,11 +80,12 @@ fn main() -> ! {
         let clone_task = Arc::clone(&tasks);
         
         thread::spawn(move || {
-            let lock_task = clone_task.lock().unwrap();
+            let mut lock_task = clone_task.lock().unwrap();
             
-            for mut task in lock_task.iter() {
-                TaskScheduler::run(&mut task);
-                TaskScheduler::handler(&mut task);
+            for task in lock_task.iter_mut() {
+                TaskScheduler::run(task);
+                TaskScheduler::handler(task);
+                println!("{:?}\n", task);
             }
         }).join().unwrap();
     }
