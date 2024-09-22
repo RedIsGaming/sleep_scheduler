@@ -7,18 +7,21 @@ pub enum ProcessState {
     Running,
 }
 
-#[derive(Debug, Clone)]
-pub struct TaskScheduler {
-    pub name: String,
-    pub state: ProcessState,
-    pub job: fn(&TaskScheduler),
-    pub time: Time,
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct Time {
     pub period: u32,
     pub delay: Duration,
     pub count: u32,
     pub utc: String,
+}
+
+impl Time {
+    pub fn new(period: u32, delay: Duration, count: u32, utc: String) -> Self {
+        Self {
+            period,
+            delay,
+            count,
+            utc
+        }
+    }
 }

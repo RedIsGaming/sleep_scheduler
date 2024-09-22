@@ -1,9 +1,7 @@
 pub mod process;
 
 pub mod commands {
-    use std::env::consts;
-    use std::io;
-    use std::process::{Child, Command};
+    use std::{env::consts, io, process::{Child, Command}};
     use chrono::TimeDelta;
     
     pub fn task_command(task: String, shutdown: TimeDelta) -> Result<Child, io::Error> {
