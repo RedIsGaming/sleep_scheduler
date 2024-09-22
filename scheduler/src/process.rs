@@ -1,4 +1,4 @@
-use std::{process::Child, time::Duration};
+use std::time::Duration;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum ProcessState {
@@ -11,7 +11,7 @@ pub enum ProcessState {
 pub struct TaskScheduler {
     pub name: String,
     pub state: ProcessState,
-    pub job: fn() -> Child,
+    pub job: fn(&TaskScheduler),
     pub time: Time,
 }
 
@@ -20,4 +20,5 @@ pub struct Time {
     pub period: u32,
     pub delay: Duration,
     pub count: u32,
+    pub utc: String,
 }

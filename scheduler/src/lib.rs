@@ -1,31 +1,30 @@
 pub mod process;
 
 pub mod commands {
-    use std::{env::consts, process::{Child, Command}};
+    use std::env::consts;
+    use std::io;
+    use std::process::{Child, Command};
+    use chrono::TimeDelta;
     
-    pub fn task_command(task: &str) -> Child {
-        if consts::OS == "linux" || consts::OS == "macos" {
-            let command = Command::new("sh")
-                .args(["-c", &format!("echo {}", task)])
-                .spawn()
-                .expect("Couldn't find the echo command");
-
-            return command
+    pub fn task_command(task: String, shutdown: TimeDelta) -> Result<Child, io::Error> {
+        match consts::OS {
+            "linux" | "macos" => {
+                Command::new("sh").args(["-c", &format!("echo {}", task)]).spawn()?;
+                Ok(Command::new("sudo").args(["-c", &format!("shutdown -h +{}", shutdown.num_minutes())]).spawn()?)
+            }
+            "windows" => {
+                Command::new("cmd").args(["/c", &format!("echo {}", task)]).spawn()?;
+                Ok(Command::new("cmd").args(["/c", &format!("shutdown -s -t {}", shutdown.num_seconds())]).spawn()?)
+            }
+            _ => panic!("Couldn't find an implementation for OS to run shutdown commands: [Linux, MacOS, Windows].")
         }
-
-        Command::new("cmd").args(["/c", &format!("echo {}", task)]).spawn().expect("Couldn't find the echo command")
     }
 
-    pub fn task_clear() -> Child {
-        if consts::OS == "linux" || consts::OS == "macos" {
-            let command = Command::new("sh")
-                .args(["-c", "clear"])
-                .spawn()
-                .expect("Couldn't find the clear command");
-
-            return command
+    pub fn task_clear() -> Result<Child, io::Error> {
+        match consts::OS {
+            "linux" | "macos" => Ok(Command::new("sh").args(["-c", "clear"]).spawn()?),
+            "windows" => Ok(Command::new("cmd").args(["/c", "cls"]).spawn()?),
+            _ => panic!("Couldn't find an implementation for OS to run clear commands: [Linux, MacOS, Windows].")
         }
-
-        Command::new("cmd").args(["/c", "cls"]).spawn().expect("Couldn't find the cls command")
     }
 }
